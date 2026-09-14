@@ -1,0 +1,554 @@
+---
+mainfont: DejaVu Sans
+output:
+  pdf_document:
+    latex_engine: xelatex
+    toc: no
+    number_sections: yes
+  word_document:
+    toc: no
+csl: apa.csl
+font-family: Times New Roman
+bibliography: references.bib
+link-citations: true
+header-includes:
+  - \usepackage{amsmath}
+  - \usepackage{amsfonts}
+  - \usepackage{amssymb}
+  - \usepackage{graphicx}
+  - \usepackage{cancel}
+  - \usepackage{natbib}
+  - \usepackage{float}
+  - \usepackage{multirow}
+  - \usepackage{framed}
+  - \usepackage{amsthm}
+  - \usepackage{enumerate}
+  - \usepackage{textgreek}
+  - \usepackage{caption}
+  - \usepackage{multirow}
+  - \usepackage{epstopdf}
+  - \usepackage{capt-of}
+  - \usepackage{booktabs}
+  - \usepackage{subfigure}
+  - \usepackage{array}
+  - \usepackage{lscape}
+  - \usepackage{dcolumn}
+  - \usepackage{titling}
+  - \usepackage{times}
+  - \renewcommand{\rmdefault}{phv}  
+  - \renewcommand{\sfdefault}{phv}
+  - \renewcommand{\baselinestretch}{2}
+  - \renewcommand{\contentsname}{\'Indice}
+  - \renewcommand{\listfigurename}{\'Indice de Figuras}
+  - \renewcommand{\listtablename}{\'Indice de Tablas}
+  - \renewcommand{\figurename}{Figura}
+  - \renewcommand{\tablename}{Tabla}
+fig_caption: yes
+geometry: top=2.5cm, bottom=2.5cm, left=2.5cm, right=2.5cm
+fontsize: 12pt
+urlcolor: blue
+linkcolor: black
+citecolor: black
+---
+
+```{r setup, include=FALSE, warning=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+\pagestyle{empty}
+\begin{titlepage}
+\begin{center}
+\begin{huge}
+Facultad de Ciencias Económicas \\
+\end{huge}
+\medskip
+\begin{LARGE}
+Universidad Nacional De Córdoba \\
+\end{LARGE}
+\medskip
+\begin{large}
+Licenciatura en Economía
+\end{large}
+\end{center}
+\medskip
+\vspace*{0in}
+\begin{figure}[h!]
+\begin{center}
+\includegraphics[width=4cm]{pictures/logo}
+\end{center}
+\end{figure}
+\begin{center}
+\begin{Large}
+\textbf{Impacto económico de la creación de universidades: evidencia vinculada con la expansión del sistema de educación en Argentina 1993-2018}
+\end{Large}
+\end{center}
+\vspace*{0.1in}
+\begin{center}
+\begin{large}
+Kevin Gaston Mansilla\\
+\end{large}
+Director: Dr. Facundo Quiraga Martínez
+\end{center}
+\vspace*{1in}
+\begin{center}
+Trabajo Final de la Carrera \\
+Septiembre de 2021
+\end{center}
+\end{titlepage}
+
+
+\newpage
+
+\tableofcontents
+\listoffigures
+\listoftables
+
+\newpage
+
+
+```{r paquetes, include=FALSE}
+######### Packages  #########
+packages <- c("readxl"   , "tseries", "dynlm"    , "mFilter", "quantmod"  , "forecast",
+              "lmtest"   , "ggplot2", "ggfortify", "vars"   , "lmtest"    , "dplyr"   ,
+              "leaflet"  , "Rcpp"   , "geosphere", "ggmap"  , "tidyverse" , "tidyr"   ,
+              "spData"   , "rgeos"  , "ggmap"    , "rgdal"  , "maptools"  , "sf"      ,
+              "raster"   , "maps"   , "sp"       , "spdep"  , "splm"      , "spData"  ,
+              "stargazer", "ggmap"  , "plm"      , "knitr"  , "spatialreg")
+sapply(packages, require, character.only = TRUE) 
+```
+\setcounter{page}{1}
+\pagestyle{plain}
+
+# Introducción
+
+Hoy en día cobra cada vez más importancia determinar el impacto que tienen las universidades en la economía regional, debido a que la educación es vista como un factor importante a la hora de explicar el desarrollo. 
+
+Para el caso de Argentina, @quiroga2018evaluacion plantea que existen tres expansiones del sistema universitario. La primera entre los años 1988 y 1995, la segunda comprende los años 2002 y 2010. Por último, la tercera fue durante los años 2014, 2015 y 2016. Además es importante resaltar que todas las provincias cuentan con la cobertura de al menos una universidad de gestión pública, esto nos permite dimensionar la amplitud del sistema de educación superior argentino. 
+
+Estas instituciones educativas afectan el crecimiento por diferentes canales, entre ellos podemos destacar una mayor oferta de capital humano, más innovación, apoyo de valores democráticos y efectos sobre la demanda.  
+
+Gracias a la teoría microeconómica podemos afirmar que un mayor acceso a la educación superior genera beneficios marginales privados y sociales. Entre los privados destacan la obtención de mayores ingresos y estabilidad laboral. También las instituciones públicas de educación superior (IES) son el lugar para resolver problemas sociales y alcanzar los objetivos nacionales [@fischman2018access]. 
+
+El principal objetivo de este trabajo consiste en analizar cómo influye la creación de nuevas universidades y la población de cada provincia en el producto bruto geográfico (PBG) per cápita. Para poder demostrar esto se propone como metodología con un modelo de efectos fijos, empleando las herramientas que nos brinda la econometría espacial para poder llegar una especificación óptima. 
+
+La estructura del trabajo comienza con una breve revisión de la bibliografía, donde se señalan las contribuciones de los principales trabajos y la evidencia previa. En segundo lugar, se esbozará la metodología, está presenta una descripción de todos los conceptos y criterios que se utilizaron para la estimación del modelo. En tercer lugar, se presenta la descripción de los datos utilizados; en cuarto lugar, se presentan los resultados obtenidos de las correspondientes estimaciones. Por último, se realizan unas breves conclusiones a partir de los resultados obtenidos. 
+
+# Breve revisión de la literatura
+
+Existe un largo volumen de estudios que tratan de ver como la educación universitaria influye sobre la economía regional, como mencionamos en la sección anterior se puede llevar a cabo por diferentes canales. En el caso de @goldstein2004contributions y @barrio2005effects, muestran que las universidades contribuyen a la creación y difusión de conocimientos dentro de la región lo cual conduce a una mejora de las economías locales. 
+
+Por otro lado, @pastorjosm_2018_higher realizan una estimación de la contribución de las instituciones de educación superior (IES) al crecimiento económico y al producto nacional per cápita de los países europeos centrándose en la contribución de la I+D. Los resultados obtenidos indican que estos efectos son una fuente importante de crecimiento, contribuyendo a mitigar los efectos adversos de los períodos de crisis. También se evidencian diferencias significativas en el PIB per cápita entre países europeos asociados a la actividad de las IES. 
+
+A su vez, @pastor_2015_estimating estudia los efectos de las universidades por el lado de la oferta. Este artículo emplea un estudio del sistema universitario español para proponer una metodología basada en escenarios contrafactuales y la medida del crecimiento para estimar los impactos a largo plazo de las universidades en sus economías regionales. El estudio evalúa los impactos estilizados de las actividades en el capital humano, los salarios y la ocupación de la población en edad laboral en la generación de capital tecnológico y, por ende, en el crecimiento del PIB de la economía española en el periodo 1989–2010. En primer lugar, los resultados conﬁrman que la búsqueda de una estrategia de crecimiento basada en el conocimiento sostenida por las universidades es adecuada y se sustenta en el hecho de que el capital humano y tecnológico generado por estas instituciones representa una parte importante del valor agregado adicional generado. En segundo lugar, la metodología muestra que el criterio para medir las contribuciones de las universidades debe considerar el valor de mercado de los recursos generados por ellas. Es por ello que las políticas universitarias deben ser evaluadas por sus resultados directos\footnote{Docencia e investigación} e indirectos\footnote{Empleabilidad y salarios de los egresados y transferencia tecnológica a las empresas}. Para concluir dice que cuanto mayor sea el capital humano y tecnológico generado y más productivo su uso, mayor será el impacto socioeconómico de las universidades.  
+
+@bonander_2016_universities se plantean si ¿las universidades de investigación son importantes para el crecimiento y el desarrollo regional? Los resultados arrojan dudas sobre la eficacia de las universidades de investigación para fomentar el crecimiento y el desarrollo regional. Por otra parte, @hausman_2012_university cree que las universidades situadas en el centro de agrupaciones innovadoras, son motores importantes del crecimiento económico local. Este texto identifica hasta qué punto las universidades estadounidenses estimulan la actividad económica cercana mediante la interacción de un impacto nacional con la difusión de la innovación de las universidades con variaciones predeterminadas tanto dentro de una universidad en cuanto a fortalezas académicas como a través de universidades en la financiación de la investigación federal. El impacto de la innovación universitaria aumenta con la proximidad geográfica a la universidad.   
+
+@sharmisthabagchisen_2012_the dicen que los responsables de la formulación de políticas suelen considerar que las universidades son actores clave en la economía basada en el conocimiento. En los Estados Unidos, particularmente las universidades de investigación, han sido el foco de muchos estudios que han buscado documentar y explicar el impacto comercial de la investigación basada en la universidad en las economías regionales. La evidencia de una amplia gama y un volumen creciente de literatura sobre las tendencias y características del espíritu empresarial académico y las colaboraciones entre la universidad y la industria muestran que las universidades desempeñan indiscutiblemente un papel importante en sus regiones.  
+
+Como se puede ver hay muchos estudios realizados para ver cómo influye la IES en el ambiente regional. No se encontraron estudios específicamente para Argentina sobre lo que se quiere demostrar en este trabajo. El más significativo y que va en línea es el de @valero2019economic que a partir de un conjunto de datos con la ubicación de casi 15.000 universidades en aproximadamente 1.500 regionales en 78 países, alguna de las cuales de remontan al siglo XI, estiman un modelo de efecto fijo al nivel subnacional entre 1950 y 2010 y encuentran que los aumentos en el número de universidades están asociados positivamente con el crecimiento futuro del PIB per cápita. 
+
+# Metodología 
+
+La autocorrelación espacial puede definirse como la similitud de valores en localizaciones próximas, ya sea positiva o negativa, su existencia implica que una muestra de datos contiene menor información que una muestra no correlacionada, formalmente: 
+$$Cov(y_{i},y_{j}) = E(y_{i},y_{j}) - E(y_{i})(y_{j}) \neq 0\,\,\,\, \forall i\neq j$$
+donde $y_{i}$, $y_{j}$ son observaciones de una variable aleatoria en la localización $i$ y $j$ en el espacio, es decir, todo par $(i,j)$ posee información geográfica específica media por latitud y longitud. 
+
+@sokal1978spatial argumentaron que el análisis de autocorrelación espacial prueba si el valor observado de una variable nominal, ordinal o de intervalo en localidades independiente de los valores de esa misma variable en las localidades vecinas. 
+
+Entonces se puede llegar a la conclusión de que, si el valor de una o varias variables en una ubicación son similares a los valores de dichas variables en ubicaciones cercanas, entonces se dice que el patrón en conjunto exhibe una autocorrelación espacial positiva.
+
+Por el contrario, se dice que existe autocorrelación espacial negativa cuando las observaciones que están cerca en el espacio tienen a ser más diferentes en los valores de las variables que las observaciones que están más separadas.  
+
+En los análisis de autocorrelación espacial se necesita una medida de contigüidad que podemos definirla de manera general como una relación de vecindad, estas pueden ser de tres tipos, caso de torre, caso de alfil y caso de la reina. Un aspecto crucial de la definición de la autocorrelación espacial es la determinación de las ubicaciones cercanas, es decir, aquellas ubicaciones que rodean un punto de datos que podría considerarse que influyen en la observación en ese punto de datos. 
+
+Sin embargo, la determinación de este vecindario tiene un cierto grado de arbitrariedad. El número de observaciones en el vecindario establecido para cada ubicación puede expresarse mediante una matriz de ponderaciones $W$, que describe la conectividad entre $n$ unidades que se encuentran localizadas en un espacio bidimensional.
+\begin{equation*}
+\begin{bmatrix}
+W_{11} & W_{12} & \ldots & W_{1n}\\
+W_{21} & W_{22} & \ldots & W_{2n}\\
+\vdots & \vdots & \ddots & \vdots\\
+W_{n1} & W_{n2} & \ldots & W_{nn}
+\end{bmatrix}
+\end{equation*}
+
+donde $n$ representa el número de ubicaciones. La entrada en la fila $i$ y columna $j$, denotado como $W_{ij}$ corresponde al par $(i,j)$ de ubicaciones. Los elementos diagonales de la matriz son cero, por convenio, mientras que los demás elementos donde $i \neq j$ toman valores distintos de cero cuando las ubicaciones se consideran vecinas. 
+
+Se toma como referencia la distancia euclídea (tipo reina), este método considera vecinas dos áreas si cumplen cierta propiedad referente a la distancia que las separa. Nos referimos a la distancia entre dos regiones como la distancia entre sus puntos representativos (centroides).  
+
+Al establecer un centroide en cada provincia se detectó que en el caso de contigüidad tipo reina la provincia de tierra del fuego quedaba desconectada del resto, esto es porque esté criterio no obliga a los polígonos que se encuentran aislados geográficamente a relacionarse o conectarse con los demás.  Una solución común a este problema es restringir la estructura contigua a los $k-$vecinos más cercanos, en nuestro caso $k=4$, y por lo tanto excluir las 'islas' (áreas que por no estar a una distancia d de otra área se podría decir que no tiene vecinos) y forzar a cada unidad de área a tener el mismo número $k$ de vecinos. Formalmente 
+\begin{displaymath}W_{ij} = \left\{ \begin{array}{ll}1 & \mbox{Si el centroide de $j$ es uno de los $k$ centroides más cercanos al de $i$} \\0 & \mbox{c.c}\end{array}\right.\end{displaymath}
+
+Una vez definida la matriz de contactos, pueden utilizarse diferentes estadísticos univariantes que permiten detectar autocorrelación espacial. Los mismos pueden clasificarse como medidas de dependencia globales o locales. Las medidas globales utilizan la información completa del conjunto de datos con el fin de obtener un valor promedio para todo el espacio geográfico. Al resumir en un único valor toda la información, no es posible detectar la variabilidad de la dependencia ni la localización de estos patrones. Por su parte, las medidas locales examinan la autocorrelación espacial en un subconjunto de datos. 
+
+A la hora de estudiar los datos espaciales, la correlación puede estar presente en variables explicativas, variable dependiente o en los residuos del modelo. Cuando la dependencia se encuentra en la variable dependiendo los modelos se denominan modelos de retardo espacial mientras que si está en los residuos se denominan modelos de error espacial. Por otro lado, cuando se presenta en las variables explicativas se llaman modelos de regresión cruzada o modelos X espacialmente retardados. Entonces, lo que primero se hace es armar el modelo como si fuera una regresión lineal y ver dónde está la autocorrelación espacial y ver cuál es el modelo que mejor se ajusta.
+
+Es por ello que presentaremos la prueba de @hausman1978specification, que permite decidir entre un modelo en el cual los efectos individuales no se correlacionan con las variables explicativas, este test determina qué método de estimación utilizar.  
+
+La prueba de especificación de Hausman, puede aplicarse para probar el modelo de efectos aleatorios contra el modelo de efectos fijos. En nuestro caso, esta prueba se construye midiendo la brecha (ponderada por una matriz de varianza de covarianza) entre las estimaciones producidas por los estimadores dentro (modelo de efectos fijos) y GLS (modelo de efectos aleatorios) de los cuales se sabe que uno de los dos es convergente independientemente de la hipótesis formulada sobre la correlación entre variables y características inobservables, mientras que el otro (GLS) no converge en el único caso en el que esta hipótesis no se verifica. Por tanto, una diferencia significativa en ambas estimaciones implica una mala especificación del modelo de efectos aleatorios. 
+
+@mutl2011hausman han demostrado que estas propiedades siguen siendo válidas en un entorno espacial al reemplazar cada estimador dentro y GLS por su "análogo" espacial (teniendo en cuenta los términos de autocorrelación espacial). La prueba robusta de Hausman de autocorrelación espacial está escrita: 
+$$S_{hausman} = NT(\widehat{\beta}_{MCG} - \widehat{\beta}_{Within})' \left( \sum_{Within} - \sum_{MCG}\right)^{-1}(\widehat{\beta}_{MCG} - \widehat{\beta}_{Within})  $$
+donde $\widehat{\beta}_{MCG}$ y $\widehat{\beta}_{Within}$ son los parametros estimados por GLS y within respectivamente, $\sum_{Within}-\sum_{MCG}$ se corresponden a las matriz de varianza y covarianzas de los dos estimadores.
+
+A su vez, también presentaremos otros test que nos ayudaran a elegir la especificación más adecuada para estimar nuestro modelo, como los test I de Morán y Multiplicadores de lagrange. Por lo que partimos de un modelo estático (el más simple posible):
+\begin{align*}
+y = X\beta + \mu \\
+\mu \sim (0, \sigma^{2} I_{n})
+\end{align*}
+siendo la variable dependiente $y$ un vector de dimensión $(n × 1)$, $X$ es una matriz de variables expicativas, incluyendo una constante, de orden $(n × k)$, $\beta$ es un vector de parámetros desconocidos de orden $(k × 1)$ y $\mu$ es el término de error de dimendición $(n × 1)$. 
+
+La presencia de estructura espacial en el modelo anterior puede contrastarse en base a estadísticos simples que utilizan resultados de estimación por mínimos cuadrados ordinarios (MCO). Uno de estos contrastes es el test I de Moran que se aplica a los residuos del modelo, sugerido por @cliffspatial:
+$$ I = \frac{n}{S_{0}} \frac{\widehat{u}' W \widehat{u}}{\widehat{u}'\widehat{u}}  $$
+donde $\widehat{u}$ es el vector de residuos $MCO$, $n$ es el número de observaciones y $S_{0}$ es la suma de todos los elementos de $W$.
+
+La hipótesis nula del contraste es no autocorrelación espacial. El problema con esté test es que el rechazo de la hipotesis nula no brinda información sobre el posible modelo a especificar dado que la hipotesis alternativa es general y no da una guía sobre el tipo de estructura espacial.
+
+Como complemento, se emplea también el test de multiplicadores de Lagrange, LM, donde la hipótesis alternativa se encuentra bien definida y restringuida, estableciendo un modelo de error autoregresivo asumiendo que el término de error del modelo inicial se comporta de la siguiente forma:
+$$u = \rho W \mu + \epsilon$$
+donde $\rho$ es el parámetro espacial autoregresivo, $W$ es una matriz de pesos espaciales no estocástica de orden $(n × n)$ y $\epsilon$ es un vector de innovaciones con media nula y varianza constante 0,  $(\sigma^{2}I)$. Entonces, el test establece las siguientes hipótesis:
+\begin{align*}
+H_{0}: \rho = 0 \\
+H_{1}: \rho \neq 0
+\end{align*}
+además su formula de calculo es:
+$$LM_{error} = \frac{1}{T_{1}} \left(\frac{\widehat{u}' W \widehat{u}}{\widehat{\sigma}^{2}} \right)^{2}  \stackrel{as}{\sim} \chi^{2}_{(1)} $$
+Donde $T_{1}$ es igual a $tr[(W'+ W)W]$ y $\widehat{u}$ son los residuos y $\widehat{\sigma}^{2} = \frac{\widehat{u}' \widehat{u}}{n}$
+
+Una segunda hipótesis alternativa, planteando un modelo de rezago espacial (SLM), que incorpora un rezago espacial de la variable dependiente, $Wy$, como explicativa:
+$$y = \lambda Wy + X\beta + \mu$$
+donde $\lambda$ es un parámetro  espacial autoregresivo, $\mu$ es un vextor de errores de dimensión $(nx1)$ y $\mu \sim (0,\sigma^{2}I_{n})$. Las hipotesis que propone el test son las siguientes:
+\begin{align*}
+H_{0}: \lambda = 0, \\
+H_{1}: \lambda \neq 0
+\end{align*}
+con la siguiente estructura:
+$$LM_{LAG} = \frac{1}{n} \frac{\left(\frac{\widehat{u}' W \widehat{u}}{\widehat{\sigma}^{2}} \right)^{2}}{J_{\lambda \beta}}  \stackrel{as}{\sim} \chi^{2}_{(1)} $$
+con $J_{\lambda \beta} = \frac{1}{n \sigma^{2}}[(W X \beta)' M (W X \beta) + T_{1}\sigma^{2}]$, con $M = I - (X' X)^{-1} X'$.
+
+Según @gmez_2017_fundamentals estos contrastes LM presentan como inconveniente que son sensibles a diferentes tipos de errores de especificación. Por ejemplo, el $LM_{ERROR}$ detecta autocorrelación espacial debido a la presencia de un rezago espacial de la variable endógena $(Wy)$, y lo mismo puede decirse del $LM_{LAG}$, que brinda falsos positivos cuando el término de error contiene un rezago espacial $(Wu)$. Es por ello que Anselin et al. (1996) proponen dos nuevos multiplicadores de Lagrande que se caracterizan por ser más robustos a los errores de especificación.
+
+El $LM^{*}_{ERROR}$ analiza la falta de correlación en los residuos, siendo robusto a la omisión del término $Wy$:
+$$LM^{*}_{ERROR} = \frac{\left[\left(\frac{\widehat{u}' W \widehat{u}}{\widehat{\sigma}^{2}} \right) - \left(\frac{\widehat{u}' W \widehat{u}}{\widehat{\sigma}^{2}} \right)\right]^{2}}{n \widehat{J}_{\lambda \beta} -T_{1}}  \stackrel{as}{\sim} \chi^{2}_{(1)} $$
+Y el $LM^{*}_{LAG}$ permite detectar la autocorrelación espacial en presencia de estructura espacial en el término de error:
+$$LM^{*}_{LAG} = \frac{\left(\frac{\widehat{u}' W \widehat{u}}{\widehat{\sigma}^{2}} \right) - T_{1}(\widehat{J}_{\lambda \beta})^{-1} \left(\frac{\widehat{u}' W y}{\widehat{\sigma}^{2}} \right)}{n \widehat{J}_{\lambda \beta} -T_{1}}  \stackrel{as}{\sim} \chi^{2}_{(1)}$$
+Estos contrastes permiten incorporar variantes espaciales en base al rechazo o no de cada una de las hipótesis nulas. en base a la siguientes estrategía:
+\begin{itemize}
+\item Si $I$ de Moran rechaza $H0$ hay evidencia a favor de inclusión de elementos espaciales.
+\item Si $LM_{ERROR}$ y $LM^{*}_{ERROR}$ rechazan $H0$ hay evidencia a favor de un modelo de error espacial $(SEM)$.
+\item Si $LM_{LAG}$ y $LM^{*}_{LAG}$ rechazan $H0$ hay evidencia a favor de un modelo de rezago espacial $(SLM)$.
+\item Si no se rechaza $H0$ bajo ninguno de los contrastes, entonces hay evidencia a favor delmodelo lineal general no espacial.
+\item Si ambos contrastes robustos, $LM_{ERROR}$ y $LM^{*}_{LAG}$, rechazan $H0$ entonces se deberán incorporar elementos espaciales en la parte sistemática $(Wy)$ y aleatoria $(Wu)$.
+\end{itemize}
+
+El modelo a implementar es el espacial autoregresivo, formalmente se presenta la siguiente manera:
+$$y_{it} = \rho \sum_{i \neq j} w_{ij}y_{jt} + x_{it}\beta + \alpha_{i} + \mu_{it}$$
+donde $u_{it} \stackrel{iid}{\sim} N(0, \sigma^{2})$. La interacción espacial aquí se modela a través de la introducción de la variable dependiente espacialmente rezagada $\sum_{i \neq j} w_{ij}y_{jt}$. Al igual que en los modelos de sección transversal, la introducción de esta variable conlleva efectos secundarios globales: en promedio, el valor de $y$ en el tiempo $t$ para la observación $i$ es explicado no solo por los valores de las variables explicativas de esta observación, sino también por aquellos asociado con todas las observaciones (vecino i o de otro tipo). También está en juego un efecto de derrame espacial global: un choque aleatorio en una observación $i$ en el tiempo $t$ afecta no solo el valor de y de esta observación en el mismo período, sino que también tiene un efecto en la valores de y de otras observaciones.
+
+\newpage
+# Datos
+
+El estudio se realizó con datos de panel que comprenden un período desde 1993 al 2018 inclusive, correspondientes a las provincias argentinas y la Ciudad de Buenos Aires. Para poder analizar la influencia que tienen el tamaño de la población y el número de universidades en el PBG per cápita. 
+
+Contamos con un total de 624 observaciones de cada variable. En la tabla \ref{table:descriptive} se puede observar un resumen de las mismas. Podemos ver que el mínimo registrado para la población medida en miles de persones, es de 76.07 correspondiente a la provincia de Tierra del Fuego en el año 1993, por otra parte el máximo se corresponde la provincia de Buenos Aires para el año 2018 y el promedio de personas para el territorio es 1627.63.
+
+Por otra parte, el PBG muestra una disparidad bastante notable dado que el presenta un minimo de 1.119 millones de pesos correspondiente a la provincia de Catamarca y un maximo de 2.964.595 para la Bueno Aires.
+
+A su vez, para el número de universidades observamos que el mínimo es una universidad nacional, esto se da para las provincias de Corrientes, Catamarca, Jujuy, La Pampa, Misiones, Salta, San Juan y Tucumán. Y un máximo de nueve en la Ciudad de Buenos Aires. 
+
+\newpage
+\begin{table}[h!]
+\centering
+\caption{\textbf{Estadística descriptiva}}
+\begin{tabular}{@{}cccc@{}}
+\toprule
+Variables   & PBG       & Población & \#Universidades \\ \midrule
+Minimo      & 1.119     & 76.07     & 1               \\
+1s Quartil  & 3.830     & 424.26    & 1               \\
+Mediana     & 1.2610    & 748.77    & 2               \\
+Media       & 8.0130    & 1627.63   & 2.479           \\
+3rd Quartil & 5.4836    & 1324.40   & 3               \\
+Máximo      & 2.964.595 & 17196.4   & 9               \\ \bottomrule
+\end{tabular}
+\begin{center}
+\begin{scriptsize}
+\textit{Fuente: Elaboraci\'on propia.}
+\end{scriptsize}
+\label{table:descriptive}
+\end{center}
+\end{table}
+
+En la figura \ref{F:uni2}, se esboza la distribución espacial de las universidades nacionales en el territorio. Vemos que la mayor cantidad está ubicada en la provincia de Buenos Aires, esto es debido a que la política de expansión del sistema universitario no tuvo una clara estrategia de cobertura territorial y concentró la mayor parte de oferta en el área metropolitana de la Ciudad de Buenos Aires [@quiroga2018evaluacion].
+
+```{r plot_uni, include=FALSE}
+universidades <- c("Universidad Nacional de Córdoba",
+                   "Universidad de Buenos Aires",
+                   "Universidad Nacional del Litoral - Rectorado",
+                   "Universidad Nacional de La Plata",
+                   "Universidad Nacional de Tucumán ",
+                   "Universidad Nacional de Cuyo",
+                   "Universidad Tecnológica Nacional Facultad Regional Córdoba",
+                   "Rectorado - Universidad Nacional del Nordeste",
+                   "Universidad Nacional del Sur palihue",
+                   "Universidad Nacional de Rosario",
+                   "Universidad Nacional de La Rioja",
+                   "Universidad Nacional de Río Cuarto",
+                   "Servicio Social - UNComa - Sede Central",
+                   "Universidad Nacional de Catamarca",
+                   "Universidad Nacional de Lomas de Zamora",
+                   "Universidad Nacional de Luján",
+                   "Universidad Nacional de Salta",
+                   "Rectorado Universidad Nacional de Entre Ríos",
+                   "Rectorado Universidad Nacional de Jujuy",
+                   "Universidad Nacional de Misiones",
+                   "Rectorado de la Universidad Nacional de San Juan",
+                   "Universidad Nacional de San Luis",
+                   "Universidad Nacional de Santiago del Estero",
+                   "UNLPam - Facultad de Ciencias Exactas y Naturales",
+                   "Universidad Nacional de la Patagonia San Juan Bosco - Sede Comodoro Rivadavia",
+                   "Universidad Nacional del Centro de la Provincia de Buenos Aires",
+                   "Universidad Nacional de Mar del Plata",
+                   "Universidad Nacional de Formosa",
+                   "Universidad Nacional de La Matanza",
+                   "Universidad Nacional de Quilmes",
+                   "Universidad Nacional de San Martín - Campus Miguelete",
+                   "Universidad Nacional de General Sarmiento (UNGS)",
+                   "Universidad Nacional de la Patagonia Austral UNPA - Rectorado",
+                   "Universidad Nacional de Lanús",
+                   "Universidad Nacional de Tres de Febrero",
+                   "Universidad Nacional de Villa María - Rectorado",
+                   "UNNOBA - UNIVERSIDAD NACIONAL DEL NOROESTE DE LA PCIA DE BUENOS AIRES",
+                   "Universidad Nacional de Chilecito (UNdeC)",
+                   "Universidad Nacional del Chaco Austral",
+                   "Universidad Nacional de Río Negro",
+                   "Universidad Nacional Arturo Jauretche",
+                   "Universidad nacional De Avellaneda",
+                   "Universidad Nacional de José C. Paz",
+                   "Universidad Nacional de Moreno",
+                   "Universidad Nacional de Villa Mercedes",
+                   "Universidad Nacional del Oeste",
+                   "Universidad Nacional de Tierra del Fuego, Antártida e Islas del Atlántico Sur",
+                   "UNDEF - Universidad de la Defensa Nacional",
+                   "Universidad Nacional de Hurlingham",
+                   "UNC - Facultad de Artes - Pabellón México",
+                   "Universidad Nacional de los Comechingones",
+                   "Universidad Nacional de Rafaela",
+                   "Universidad Nacional de San Antonio de Areco",
+                   "Universidad Nacional del Alto Uruguay",
+                   "Universidad nacional Raúl Scalabrini Ortiz",
+                   "Universidad Nacional Guillermo Brown - UNaB",
+                   "Universidad Tecnológica Nacional Facultad Regional Santa Fe")
+
+register_google (key = "AIzaSyB9Jp8zkOvtURRrIOh1SM86rwE5RlBWhFo")
+universidades <- data.frame(universidades, geocode(universidades))
+argentina_dept <- readRDS("gadm36_ARG_1_sf")
+
+pdf(file="pictures/Rplot02.pdf") #open file
+ggplot(data = argentina_dept) +
+  geom_sf(fill = "white", color = "black") +
+  xlab("Longitud") + ylab("Latitud")  +
+  geom_point(aes(lon, lat), 
+  alpha=0.8, color="red", size=2, shape=16, data=universidades) 
+dev.off()           # closet fiie
+```
+
+\begin{figure}[h!]
+\caption{\textbf{Distribución geográfica de las universidades.}}
+\center
+\includegraphics[width=0.8\textwidth]{pictures/Rplot02.pdf}
+\begin{center}
+\begin{scriptsize}
+\textit{Fuente: Elaboraci\'on propia.}
+\end{scriptsize}
+\end{center}
+\label{F:uni2}
+\end{figure}
+
+\newpage
+# Resultados
+
+Nuestra aplicación como se mensionó anteriormente consiste en determinal la relación que tienen aumento en la población y el número de universidades de cada provincia, con el producto bruto regional per cápita. Cabe resaltar que trabajamos con las variables expresadas en logaritmos para mayor facilidad en las interpretaciones. Entonces, la especificación inicial está dada por:
+$$PBG_{it} = b_{0} + b_{1}\,\,POB_{it} + b_{2}\,\, \#universidades_{it} + \epsilon_{it}$$
+donde $b_{0}$, $b_{1}$, $b_{2}$ son los parámetros desconocidos a estimar, $\#universidades$ es el número de universidades y $\epsilon_{it}$ es un término de error para el cual $i.i.d$. inicialmente suponga que $\epsilon_{it} \sim N(0, \sigma^{2})$.
+
+Para tener en cuenta los efectos espaciales es necesario estimar la especificación aumentada por un término autorregresivo espacial [@fingleton2000spatial], vinculando  un error autorregresivo espacial
+modelo:
+$$PBG_{it} = b_{0} + b_{1}\,\,POB_{it} + b_{2}\,\, \#universidades_{it} + \epsilon_{it}$$
+$$\epsilon_{it} = \alpha_{i} + \lambda \sum_{i \neq j} w_{ij}\epsilon_{jt} + v_{it}$$
+Para seleccionar la especificación más adecuada, partimos del modelo sin autocorrección espacial, e implementamos la prueba de Hausman y las pruebas del multiplicador de Lagrange a los residuos del los modelos. En la tabla \ref{tab:model_ini}, muestra los resultados de la estimación donde en la columna (1) se observa un modelo de datos agrupados (pooled), mientras que las columnas (2) y (3) tienen en cuenta los datos no observados heterogeneidad individual, respectivamente, a través de efectos fijos y efectos aleatorios.  Se puede observer que en todos los casos las variables son significativas.
+
+```{r base_m_contactos, include=FALSE, warning=FALSE}
+######## Modelo ########
+panel <- read_excel("Base.xlsx")
+#View(panel)
+
+##Matriz de contactos
+arg <- raster::getData("GADM", country = "Argentina", level = 1)
+summary(arg)
+
+arg_nb <- poly2nb(arg, queen=TRUE)
+coords <- coordinates(arg)
+plot(arg,border="grey",lwd=1.5)
+plot(arg_nb, coordinates(arg), add=TRUE, col="darkred")
+
+#no funciona xq tierra del fuego queda sin vecionos 
+#dlist <- nbdists(nbarg, coords)
+#idw <- lapply(dlist, function(x) 1/(x/1000))
+#nb2listw(nbarg,glist=idw,style="B",zero.policy = TRUE) #nofunciona
+
+##los k=4 vecinos mas cercanos
+arg_k <- knn2nb((knearneigh(coords,k=4)))
+arg_k
+warg <- nb2listw(arg_k)#funciona
+plot(arg_k, coordinates(arg), add=TRUE, col="darkred")
+summary(arg_k)
+
+eq <- log(Pbg_p) ~ log(Pob) + log(num_uni)
+```
+
+```{r modelos_iniciales, include=FALSE, echo=FALSE, warning=FALSE}
+verdoon_pooled <- plm(eq, data=panel, model="pooling")
+
+verdoorn_fe1   <- plm(eq, data = panel, model = "within", effect="individual")
+
+verdoorn_re1   <- plm(eq, data = panel, model = "random", effect="individual")
+
+summary(verdoon_pooled)
+summary(verdoorn_fe1)
+summary(verdoorn_re1)
+```
+
+\begin{table}[h!]
+\centering
+\caption{Estimación sin considerar autocorrelación espacial}
+\label{tab:model_ini}
+\begin{tabular}{@{}cccc@{}}
+\toprule
+Modelo              & pooled (1)  & fixed effets(within) (2) & random effects (GLS) (3) \\ \midrule
+$b_{0}$ (intercep)  & 4.849499*** & -                        & -1.31305                 \\
+log(Pob)            &-0.363569*** & 8.03350***               & 0.50133**                \\
+log(\#Universidades)& 0.942894*** & 0.12794***               & 1.53424***               \\
+Observaciones       & 624         & 624                      & 624                      \\
+$R^{2}$ ajustado    & 0.13873     & 0.72179                  & 0.17607                  \\ \bottomrule
+\end{tabular}
+
+\begin{scriptsize}
+*** p<0.01, ** p<0.05, * p<0.1.
+\textit{Fuente: Elaboraci\'on propia.}
+\end{scriptsize}
+\end{table}
+
+\newpage
+Por otro lado, la prueba estándar de Hausman y su versión robusta para la detección de autocorrelación espacial de errores que se presenta en la tabla \ref{tab:hausman}, conduce al rechazo de la hipótesis nula sobre la ausencia de correlación entre efectos y variables explicativas.  Por lo que se elige un modelo de efectos fijo.
+
+```{r test_hausman, include=FALSE, echo=FALSE, warning=FALSE}
+hausman_panel <- phtest(eq, data = panel)
+
+spat_hausman_ML_SEM <- sphtest(eq, data=panel, listw=warg, spatial.model = "error", method="ML")
+
+spat_hausman_ML_SAR <-sphtest(eq, data=panel, listw =warg, spatial.model = "lag", method="ML")
+```
+
+\begin{table}[h!]
+\caption{Prueba de Hausman}
+\centering
+\label{tab:hausman}
+\begin{tabular}{@{}cccc@{}}
+\toprule
+Modelo            & Pooled(1) & fixed effects(within) (2) & random effects (GLS) (3) \\ \midrule
+Estadístico chi 2 & 1131.5*** & 35.739***                 & 10.591***                \\ \bottomrule
+\end{tabular}
+
+\begin{scriptsize}
+*** p<0.01, ** p<0.05, * p<0.1.
+\textit{Fuente: Elaboraci\'on propia.}
+\end{scriptsize}
+\end{table}
+
+En la tabla \ref{tab:lm}, se exponen los resultados de las pruebas de los multiplicador de Lagrange (LM) en un modelo de efectos fijos, los cuales tienden a favorecer una especificación SAR del modelo. 
+
+Los estadísticos de la prueba para tomar la autocorrelación espacial por SAR (Prueba 1) o SEM (Prueba 2) confirman el rechazo de la hipótesis de que estos dos términos (tomados independientemente) son nulos, la lectura simultánea nos permite concluir sobre la especificación más adecuada para tener en cuenta la autocorrelación espacial. Para concluir de una manera más creíble, se utilizan pruebas robustas en la presencia de la especificación alternativa de autocorrelación espacial (Pruebas 3 y 4).
+
+La versión robusta de $LM_{ERROR}$ no es significativa (Prueba 4) mientras que $LM_{LAG}$ si lo es (Prueba 3). Por lo tanto, es conveniente estimar un modelo Fixed-effect SAR\footnote{En algunos casos, estas dos últimas pruebas robustas no permiten discriminar entre un SAR y un SEM. Son posibles varias posibilidades. El primero consiste en estimar un modelo que contiene ambos términos espaciales (SARAR)}. 
+
+```{r tests_estruc, include=FALSE, echo=FALSE, warning=FALSE}
+# Fixed effects model
+# Test 1
+slmtest(eq, data=panel, listw = warg, test="lml", model="within")
+
+# Test 2
+slmtest(eq, data=panel, listw = warg, test="lme", model="within")
+
+# Test 3
+slmtest(eq, data=panel, listw = warg, test="rlml", model="within")
+
+# Test 4
+slmtest(eq, data=panel, listw = warg, test="rlme", model="within")
+```
+
+\begin{table}[h!]
+\caption{Test LM y LM*}
+\centering
+\label{tab:lm}
+\begin{tabular}{@{}cccc@{}}
+\toprule
+$LM_{LAG}$ (prueba 1) & $LM_{Error}$ (prueba 2) & $LM^{*}_{LAG}$ (prueba 3) & $LM^{*}_{Error}$ (prueba 4) \\ \midrule
+   873.85***          &    644.28***            &       229.58***           &       0.0028643               \\ \bottomrule
+\end{tabular}
+
+\begin{scriptsize}
+*** p<0.01, ** p<0.05, * p<0.1.
+\textit{Fuente: Elaboraci\'on propia.}
+\end{scriptsize}
+\end{table}
+
+Entonces, teniendo en cuenta las concluciones de los test que ayudan a mejorar la especificación del modelo tenemos los resultados del mismo en la tabla \ref{tab:modelos}. La columna (1) muestra el modelo de datos agrupados, mientras que en la columna (2) se exponen los resultados del modelo de efecto fijos con diferencias en la espacificación del término de error. Podemos observar que el coeficiente de autocorrelación es positivo y significativo.
+
+En cuanto a los coeficientes estimados, se observa que ambos son significativos. El aumento del número de universidades tiene un impacto positivo, por otra parte aumento de la población tiene un impacto negativo en el PBG per cápita.
+
+```{r modelos, include=FALSE, echo=FALSE, warning=FALSE}
+
+##modelo
+# Likelihood Maximum estimation
+verdoorn_SAR_pool <- spml(eq, data = panel, listw = warg, lag=TRUE ,model="pooling")
+summary(verdoorn_SAR_pool)
+
+# Fixed-effect SAR
+verdoorn_SAR_FE1 <- spml(eq, data = panel, listw = warg, lag=TRUE, model="within", effect="individual", spatial.error="b")
+summary(verdoorn_SAR_FE1)
+
+verdoorn_SAR_FE2 <- spml(eq, data = panel, listw = warg, lag=TRUE, model="within", effect="individual", spatial.error="kkp")
+summary(verdoorn_SAR_FE1)
+```
+
+\begin{table}[h!]
+\caption{Estimación de modelos}
+\centering
+\label{tab:modelos}
+\begin{tabular}{@{}ccc@{}}
+\toprule
+Modelo              & pooled (1)   & fixed effects(MV) (2) \\ \midrule
+$b_{0}$ (intercep)  & 1.576162***  & -                     \\
+log(Pob)            &-0.240354***  & -1.363550***          \\
+log(\#universidades)& 0.464511***  & 0.062897*             \\
+Observaciones       & 624          & 624                   \\ \bottomrule
+\end{tabular}
+
+\begin{scriptsize}
+*** p<0.01, ** p<0.05, * p<0.1.
+\textit{Fuente: Elaboraci\'on propia.}
+\end{scriptsize}
+\end{table}
+
+# Conclusiones preliminares
+
+El objetivo de este trabajo fue indagar sobre la influencia que tiene la población y el número de universidades en el PBG per cápita.  
+
+La metodología empleada se basó en la estimación de un modelo con efectos fijos con diferencias en la especificación del término de error, para ello se empleó en herramental que nos brinda la econometría espacial. Iniciando con la detección de autocorrelación espacial, para de esta forma encontrar un criterio adecuado para la obtención de la matriz de pesos espaciales y luego el uso de la estrategia propuesta por @gmez_2017_fundamentals para obtener la especificación óptima que se ajuste al conjunto de datos.  
+
+Se encontró evidencia de una relación negativa y altamente significativa entre la población y el PBG per cápita. Por otro lado, existe una dependencia positiva y significativa con el número de universidades y la variable dependiente. Gracias a esto es posible afirmar que la presencia de universidades se asocia positivamente con un crecimiento económico. También hay que tener presente que esté beneficio se extiende a las regiones vecinas.  
+
+Como conclusión este trabajo nos sugiere que las universidades tienen un rol muy importante en la sociedad, el cual va más allá de su efecto como productores de capital humano, es decir, que hay que tener en cuenta las externalidades que está instutición genera debido a su amplio rango de impacto.
+
+\newpage
+# Bibliografía
+
+

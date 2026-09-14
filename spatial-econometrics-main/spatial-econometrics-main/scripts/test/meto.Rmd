@@ -1,0 +1,387 @@
+---
+output: 
+    pdf_document:
+      latex_engine: xelatex
+      toc: no
+      number_sections: true
+#csl: apa.csl
+#bibliography: references.bib
+header-includes:
+   - \usepackage{amsmath}
+   - \usepackage{amsfonts}
+   - \usepackage{amssymb}
+   - \usepackage{graphicx}
+   - \usepackage{cancel}
+   - \usepackage{natbib}
+   - \usepackage{float}
+   - \usepackage{multirow}
+   - \usepackage{framed}
+   - \usepackage{amsthm}
+   - \usepackage{enumerate}
+   - \usepackage{textgreek}
+   - \usepackage{caption}
+   - \usepackage{multirow}
+   - \usepackage{epstopdf}
+   - \usepackage{capt-of}
+   - \usepackage{booktabs}
+   - \usepackage{subfigure}
+   - \usepackage{array}
+   - \usepackage{lscape}
+   - \usepackage{dcolumn}
+   - \usepackage{titling}
+   - \renewcommand{\rmdefault}{phv} 
+   - \renewcommand{\sfdefault}{phv}
+
+
+fig_caption: true
+geometry: top=3cm, bottom=3cm, left=3cm, right=3cm 
+fontsize: 12pt
+urlcolor: blue
+linkcolor: black
+citecolor: black
+
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# Análisis del Codeo y Estimaciones de Modelo
+
+```{r ,warning=FALSE, include=FALSE}
+packages <- c("readxl", "tseries","dynlm","mFilter","quantmod","forecast",
+              "lmtest","ggplot2","ggfortify","vars","lmtest","dplyr",
+              "leaflet","Rcpp","geosphere","ggmap","tidyverse",
+              "spData","rgeos", "ggmap", "rgdal","maptools", "tidyr","sf",
+              "raster", "maps", "sp","spdep","splm","spData","spatialreg",
+              "stargazer","plm")
+sapply(packages, require, character.only = TRUE) 
+```
+
+## Matriz de Datos Espaciales
+
+```{r}
+#panel
+panel <- read_excel("Base.xlsx")
+summary(panel)
+
+#Descargo el archivo con los poligonos de https://gadm.org/
+arg <- raster::getData("GADM", country = "Argentina", level = 1)
+summary(arg)
+
+#vecinos
+arg_nb <- poly2nb(arg, queen=TRUE)
+
+#coordenadas que me sirven para el plot
+coords <- coordinates(arg)
+
+#plot 
+plot(arg,border="grey",lwd=1.5)
+plot(arg_nb, coordinates(arg), add=TRUE, col="darkred") 
+#tierra del fuego queda aislada por este 
+#criterio, sino uno queda aislado R 
+#directamente no te deja usar la función para la matriz
+
+##los k=4 vecinos más cercanos (con este funciona)
+arg_k <- knn2nb((knearneigh(coords,k=4)))
+arg_k
+warg <- nb2listw(arg_k)#funciona
+plot(arg_k, coordinates(arg), add=TRUE, col="darkred")
+summary(arg_k)
+summary(warg)
+```
+
+Sean $Z_{1}, Z_{2}, \ldots ,Z_{K}$ variables aleatorias y sea $S$ la ubicación del punto o área. La matriz de datos espaciales viene generada por:
+
+\begin{equation*}
+\left(\begin{array}{rrrr|r}
+z_{1}(1) & z_{2}(1) & \ldots & z_{K}(1) & s(1)\\
+z_{1}(2) & z_{2}(2) & \ldots & z_{K}(2) & s(2)\\
+\vdots & \vdots &\ddots  & \vdots\\
+z_{1}(n) & z_{2}(n) & \ldots & z_{K}(n) & s(n)\\
+\end{array}\right)
+\end{equation*}
+
+la cual puede ser expresada de la siguiente forma:
+
+$$\lbrace z_{1}(i), z_{2}(i), \ldots, z_{K}(i) |s(i)\rbrace_{i=1 \ldots n}$$
+donde $z_{k}$ denota una realización muestral (valor de datos real) de la variable $Z_{k}(k=1, \ldots, K)$ mientras que el símbolo $i$ dentro de los paréntesis hace referecia al caso u observación particular (punto, área, polígono o zona espacial). Para cada caso, $i=1, \ldots, n$, $s(i)$ representa la ubicación del objeto espacial. La referencia implicará dos coordenadas geográficas. Genealmente nos referiremos a un espacio bidimencional, por tanto $s(i) = (s_{1}(i),s_{2}(i))^{t}$.
+\medskip
+
+En el caso de datos referentes a objetos de puntos en un espacio bidimensional, la ubicación del punto $i-$ésimo puede estar dada por un par de coordenadas cartesionas  (ortogonales). Los ejes del sistema de coordenadas generalmente se han construiso para el conjunto de datos particular, pero se puede usar cualquier sistema de referencia. En el caso de datos referentes a objetos de área de forma irregular, una opción para representar la ubicación es seleccionar un punto representativo de cada área denominado centroide y luego usar el mismo procedimiento que para un objeto de punto para identificar $s(i)$. Hay situaciones en las que la información de georreferencia proporcionada por $\lbrace s(i) \rbrace$ tiene que completarse con información de vecindad que define no solo qué pares de áreas son adyacentes entre sí, sino que también puede cuantificar la cercanía de esa adyacencia. Esta información es necesatia para la especificación de muchos modelos estadísticos espaciales, como los modelos de regresión espacial. Dicha información está recogida en el concepto de autocorrelación espacial.
+
+El criterio de contigüidad que se utilizó es el de los 4-vecinos más cercanos, donde esto a todos los centroides un mismo número de conecciones y además obliga a los polígonos que se encuentran aislados geográficamente a relacionarse o conectarse con los demás (tierra del fuego quedaba aíslada)
+
+## Modelo
+
+SARAR: Spacial AutoRegressive with AutoRegressive error
+
+SDM: Spatial Durbin Model
+
+SDEM: Spatial Durbin Error Model
+
+SLM: Spatial Lag Model
+
+SLX: Spatial Lag in X's
+
+SEM: Spatial Error Model: El otro modelo con buena presencia en los inicios fue el modelo SEM que permite una ganancia de eficiencia respecto al modelo no-espacial. Una crı́tica empı́rica al modelo SEM sucede cuando la autocorrelación espacial es débil: los resultados tienden a ser similares a los obtenidos por una estimación no-espacial robusta.
+
+pooled (OLS): Para pasar de información de corte transversal a información de datos de panel solo es necesario incorporar un sub-ı́ndice t, que va de t = 1, . . . , T , apilando las observaciones del corte transversal periodo a periodo. Sin modificar ningún supuesto en el término de error, este tipo de extensión espacio-temporal da lugar a los modelos pooled.
+
+
+## Autocorrelación Espacial.
+
+Para Cliff y Ord (1973) es útil ver si la distribución de cierta cualidad o cantidad en los condados o estados de un país hace que su presenia en los ocndados vecinos sea más o menos probable. En tal caso, exponen que el fenónomo exhibe autocorrelación espacial. Sokal y Oden (1978) argumentaron que el análisis de autocorrelación espacial prueba si el valor observado de una variable nominal, ordinal o de intervalo en una localidad es independiente de los valores de esa misma variables en las localidades vecinas.
+\medskip
+
+Upton y Fingleton (1985) la definen como una propiedad que los datos poseen cuando muestran un patrón de comportamiento. Estos autores exponen que la autocorrelación espacial existe siempre que haya una variación espacial sistemática en los valores a lo largo de un mapa, o patrones en los valores registrados en las localizaciones.  Goodchild (1987) dice que en su sentido más general la autocorrelación espacial se refiere al grado en que los objetos o actividades en algún lugar de la superficie son similares a otros objeros o actividades ubicados cerca y refleja la primera ley de geofrafía de Tobler "todo está relacionado con todo lo demás, pero las cosas cercanas estań más relacionadas que las cosas distantes".
+\medskip 
+
+Entonces se puede llegar a la conclución de que si el valor de una o varias variables en una ubicación son similares a los valores de dichas variables en ubicaciones cercanas, entonces se dice que el patrón en conjunto exhibe una autocorrelación espacial positiva. Por el contrario, se dice que existe autocorrelación espacial negativa cuando las observaciones que están cerca en el espacio tienendes a ser más diferentes en los valores de las variables que las obsercaciones que están más separadas. La autocorrelación cero se produce cuando los valores variables son independientes de la ubicación.
+\medskip 
+
+En los análisis de autocorrelación espacial se necesita una medida de contigüidad que podemos definirla de manera general como una relación de vecindad, estas pueden ser de tres tipos, caso de torre, caso de alfil y caso de la reina.
+\medskip
+
+Un aspecto crucial de la definición de la autocorrelación espacial es la deterinalción de ubicaiones cercanas, es decir, aquellas ubicaciones que rodean un punto de datos dado que podría considerarse que influyen en la obsercación en ese punto de datos. Sin embargo, la determinación de este vecindario tiene un cierto grado de arbitrariedad. El número de observaciones en el vecindario establecido para cada ubicación puede expresarse mediante una matriz de ponderaciones $W$:
+
+\begin{equation*}
+\begin{bmatrix}
+W_{11} & W_{12} & \ldots & W_{1n}\\
+W_{21} & W_{22} & \ldots & W_{2n}\\
+\vdots & \vdots & \ddots & \vdots\\
+W_{n1} & W_{n2} & \ldots & W_{nn}
+\end{bmatrix}
+\end{equation*}
+
+donde $n$ representa el número de ubicaciones. La entrada en la fila $i$ y columna $j$, denotado como $W_{ij}$ corresponde al par $(i,j)$ de ubicaciones. Los elementos diagonales de la matriz son cero, por convenio, mientras que los demás elementos donde $i\neq j$ toman valores distintos de cero cuando las ubicaciones se consideran vecinas.
+\medskip
+
+Para los datos de áreas, $n$ representaría el número de áreas donde cada área se identifica con un punto (centroide) del que se conocen sus coordenadas cartesianas y cada elemento de la matriz $W$ corresponde a la relación de dos areas.
+\medskip
+
+Una forma de representar las relaciones espaciales con datos de áreas es a través del concepro de contigüidad. Los vecinos contiguos de primer orden se definen como áreas que tienen un límite común. Formalmente
+
+\begin{displaymath}W_{ij} = \left\{ \begin{array}{ll}1 & \mbox{si el área $j$ comparte un límite común con el área $i$} \\0 & \mbox{c.c}\end{array}\right.\end{displaymath}
+
+Alternativamente, dos áreas $i$ y $j$ pueden definirse como vecinas cuando la distancia $d_{ij}$ entre sus centroides es menor que un valor crítico dado, pongamos $d$, donde las distancias se calculan a partir de la información sore latitud y longitud, $s(i)$, de las ubicaciones del centroide:
+
+\begin{displaymath}W_{ij} = \left\{ \begin{array}{ll}1 & \mbox{si $d_{ij}<d. (d<0)$} \\0 & \mbox{c.c}\end{array}\right.\end{displaymath}
+
+Esta especificación de la matriz de ponderaciones depende de un valor de distancia crítica dado, $d$. Sin embargo, cuando hay un alto grado de heterogeneidad en el tamaño de las unidades de área, puede ser difícil encontrar una distancia crítica satisfactoria. En tales circunstancias, una pequeña distancia tenderá a conducir a muchas "islas", mientras que una distancia elegida para garantizar que cada unidad de área tenga al menos un vecino puede producir un tamaño inaceptablemente grande de número de vecinos para las unidades de áreas más pequeñas. Una solución común a este problema es restringir la estructura ccontigua a lso k-vecinos más cercanos, y por lo tanto excluir las "islas" (áreas que por no estar a una distancia $d$ de otra áreas se podría decir que no tiene vecinos) y forzar a cada unidad de área a tener el mismo número $k$ de vecinos. Formalmente:
+
+\begin{displaymath}W_{ij} = \left\{ \begin{array}{ll}1 & \mbox{si el centroide de $j$ es uno de los $k$ centroides más cercanos al de $i$} \\0 & \mbox{c.c}\end{array}\right.\end{displaymath}
+
+En este caso el número de vecinos, $k$, es el parámetro de este esquema de ponderación. También podemos cambiar la ponderación para que los vecios más distantes obtengan menos peso introduciendo un parémetro $\theta$ que permita idicar la tasa de disminución de los pesos.
+\medskip 
+
+Un esquema de ponderación continua comúnmente utilizado se basa en la función de distancia inversa, de modo que los pesos están inversamente relacionados con el área de separación de distancia $i$ y el área $j$ donde el parámetro $\theta$ se estima o se estableen a priori:
+
+\begin{displaymath}W_{ij} = \left\{ \begin{array}{ll}1 & \mbox{$d_{ij}^{-\theta}$ si la distancia entre centroides $d_{ij} < d (d>0, \theta >0$)} \\0 & \mbox{c.c}\end{array}\right.\end{displaymath}
+
+Una vez definida la matriz de contactos, pueden utilizarse diferentes estadísticos univariantes que permiten detectar autocorrelación espacial. Los mismos pueden clasificarse como medidas de dependencia globales o locales. Las medidas globales utilizan la información completa del conjunto de datos con el fin de obtener un valor promedio para todo el espacio geográfico. Al resumir en un único valor toda la información, no es posible detectar la variabilidad de la dependencia ni la localización de estos patrones. Por su parte, las medidas locales examinan la autocorrelación espacial en un subconjunto de datos.
+
+A la hora de estudiar los datos espaciales, está puede estar presente en variables explicativas, variable dependiente o en los residuos (términos de error). Cuando la dependencia espacial se encuentra en la variable dependiento los modelos se denominan modelos de retardo espacial mientras que si está en los residuos se denominan modelos de error espacial. Cuando está presente en las variables expliativas se llaman modelos de regresión cruzada o modelos X espacial mente retardados. Entonces, lo que primero se hace es armar el modelo como si fuera una regresión lineal y ver donde está la autocorrelación espacial y ver cual es el modelo que mejor se ajusta
+
+### Interpretaciones de los test
+
+Estos contrastes permiten incorporar elementos espaciales de acuerdo al rechazo o no de cada una de las hipótesis nulas. Tal es así que puede establecerse una estrategia de especificación:
+
+\begin{itemize}
+\item Si $I$ de Moran rechaza $H_{0}$ -> Evidencia a favor de inclusión de elementos espaciales.
+
+\item Si $LM_{ERROR}$ y $LM^{*}_{ERROR}$ rechazan $H_{0}$ -> Evidencia a favor de un modelo de error espacial(SEM).
+
+\item Si $LM_{LAG}$ y $LM^{*}_{LAG}$ rechazan $H_{0}$-> Evidencia a favor de un modelo de rezago espacial (SLM).
+
+\item Si no se rechaza $H_{0}$ bajo ninguno de los contrastes -> Evidencia a favor del modelo lineal general no espacial.
+
+\item Si ambos contrastes robustos, $LM_{ERROR}$ y $LM^{*}_{LAG}$, rechazan $H_{0}$ entonces se deberán incorporar elementos espaciales en la parte sistemática (Wy) y aleatoria (Wu).
+\end{itemize}
+* es la prueba más robusta
+
+Para seleccionar la más adecuada, partimos del modelo sin tener en cuenta la autocorrección espacial. Codigos y resultados
+
+```{r}
+eq <- log(Pbg) ~ log(Pob) + num_uni
+
+verdoon_pooled <- plm(eq, data=panel, model="pooling")
+
+verdoorn_fe1 <- plm(eq, data = panel,
+                    model = "within", effect="individual")
+
+verdoorn_re1 <- plm(eq, data = panel,
+                    model = "random", effect="individual")
+
+summary(verdoon_pooled)
+summary(verdoorn_fe1) 
+summary(verdoorn_re1)
+```
+
+
+Luego implementamos las pruebas de estándar de Hausman y su versión robusta. Los resultados para determinar la autocorrelación espacial, conducen al rechazo de la hipótesis nula sobre la ausencia de correlación entre los efectos individuales y las variables explicativas. Por lo que se elige un modelo de efectos fijos. (SAR > SEM en los estadísticos y en el nivel de significancia)
+```{r,warning=FALSE}
+## Prueba de hausman
+
+hausman_panel <- phtest(eq, data = panel)
+
+spat_hausman_ML_SEM <- sphtest(eq,data=panel, listw=warg, 
+                               spatial.model = "error", method="ML")
+
+spat_hausman_ML_SAR<-sphtest(eq,data=panel, listw =warg,
+                             spatial.model = "lag", method="ML")
+
+hausman_panel
+spat_hausman_ML_SEM
+spat_hausman_ML_SAR
+```
+Los resultados de las pruebas del multiplicador de Lagrange en un modelo de efectos fijos fomentan favorecer una Especificación SAR. Los estadisticos de la prueba para tomar la autocorrelación espacial por SAR (Prueba 1) o SEM (Prueba 2) confirman el rechazo de la hipótesis de que estos dos términos (tomados independientemente) son nulos, la lectura simultánea nos permite concluir sobre la especificación más adecuada para tener en cuenta la autocorrelación espacial (estas dos pruebas no están incluidss). Para concluir de una manera más creíble, se utilizan pruebas robustas en la presencia de la especificación alternativa de autocorrelación espacial (Pruebas 3 y 4). 
+
+La versión robusta de RLMerr no es significativa (Prueba 4) mientras que RLMlag si lo es (Prueba 3). Por lo tanto, es conveniente estimar un modelo Fixed-effect SAR (Ver Interpretaciones de los test). Comentario: En algunos casos, estas dos últimas pruebas robustas no permiten discriminar entre un SAR y un SEM. Son posibles varias posibilidades. El primero consiste en estimar un modelo que contiene ambos términos espaciales (SARAR). Comentario: El segundo consiste en discriminar entre dos especificaciones sobre la base de las estadísticas de prueba RLMerr y RLMlag (utilizando la especificación con las estadísticas asociadas más altas) o comparando los criterios de Akaike de las dos especificaciones.
+
+
+```{r}
+# Fixed effects model
+# Test 1
+slmtest(eq, data=panel, listw = warg, test="lml", model="within")
+
+# Test 2
+slmtest(eq, data=panel, listw = warg, test="lme", model="within")
+
+# Test 3
+slmtest(eq, data=panel, listw = warg, test="rlml", model="within")
+
+# Test 4
+slmtest(eq, data=panel, listw = warg, test="rlme", model="within")
+```
+
+Modelos: Codigos y resultados variando parametros que permite la función
+
+```{r,warning=FALSE, results=FALSE}
+# Table 
+
+# Likelihood Maximum estimation
+
+verdoorn_SAR_pool <- spml(eq, data = panel, listw = warg, lag=TRUE
+                          ,model="pooling")
+summary(verdoorn_SAR_pool)
+# Fixed-effect SAR
+verdoorn_SAR_FE1 <- spml(eq, data = panel, listw = warg, lag=TRUE,
+                         model="within", effect="individual", spatial.error="b")
+summary(verdoorn_SAR_FE1)
+
+verdoorn_SAR_FE2 <- spml(eq, data = panel, listw = warg, lag=TRUE,
+                         model="within", effect="individual", spatial.error="kkp")
+summary(verdoorn_SAR_FE2)
+```
+
+El modelo de rezago espacial, incorpora un rezago espacial de la variable dependiente $Wy$, como explicativa:
+$$y = \lambda W y + X \beta + \mu$$
+donde $\lambda$ es un parámetro espacial autoregresivo, $\mu$ es un vector de errores de dimensión $(nx1)$ y $\mu ~ (0, \sigma^{2}I_{n})$.
+
+Resultados del modelo, acá hay tres posibles opciones dependiendo de diferentes criterios.
+La ecuación con la que fueron estimados los modelos es $log(Pbg) = log(Pob) + num_uni$
+\medskip
+
+pooling: resultados
+
+```
+coefficients:
+            Estimate Std. Error t-value  Pr(>|t|)    
+(Intercept) 6.408201   0.271333 23.6175 < 2.2e-16 ***
+log(Pob)    0.863431   0.020672 41.7686 < 2.2e-16 ***
+num_uni     0.068693   0.008178  8.3997 < 2.2e-16 ***
+---
+Signif. codes:  0 ‘***’ 0.001 ‘**’ 0.01 ‘*’ 0.05 ‘.’ 0.1 ‘ ’ 1
+```
+
+Luego en `model` Within es para fixed effects y se le puede variar el argumento de la función `spatial.error` con `b` (Baltagi) o `kkp` (Kapoor). Resultados (dan igualees)
+
+```
+Coefficients:
+          Estimate Std. Error t-value  Pr(>|t|)    
+log(Pob) 0.0718612  0.0393266  1.8273 0.0676558 .  
+num_uni  0.0160614  0.0042649  3.7659 0.0001659 ***
+---
+Signif. codes:  0 ‘***’ 0.001 ‘**’ 0.01 ‘*’ 0.05 ‘.’ 0.1 ‘ ’ 1
+```
+```
+Coefficients:
+          Estimate Std. Error t-value  Pr(>|t|)    
+log(Pob) 0.0718612  0.0393266  1.8273 0.0676558 .  
+num_uni  0.0160614  0.0042649  3.7659 0.0001659 ***
+---
+Signif. codes:  0 ‘***’ 0.001 ‘**’ 0.01 ‘*’ 0.05 ‘.’ 0.1 ‘ ’ 1
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
